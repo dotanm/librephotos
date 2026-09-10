@@ -37,7 +37,7 @@ export function PeopleSection({
       <Group mt="xs">
         {photoDetail.people.map(person => (
           <PersonDetail
-            key={person.name}
+            key={person.face_id}
             person={person}
             isPublic={isPublic}
             setFaceLocation={setFaceLocation}

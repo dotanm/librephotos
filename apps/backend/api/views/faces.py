@@ -274,9 +274,43 @@ class SetFacePersonLabel(APIView):
         person = None
         cluster_person = None
         classification_person = None
-        if data["person_name"] != Person.UNKNOWN_PERSON_NAME:
+        # Person.name carries a MinLengthValidator, but get_or_create() does not run
+        # field validators, so a blank name would quietly create a nameless person
+        # and an album to go with it. Surrounding whitespace is trimmed for the same
+        # reason: " Bob " would otherwise become a second person next to "Bob".
+        person_name = (data.get("person_name") or "").strip()
+        if not person_name:
+            return Response(
+                {"status": False, "message": "person_name must not be empty"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if person_name != Person.UNKNOWN_PERSON_NAME:
+            # A cluster's label is not a person's name. Clustering backs every
+            # unnamed cluster with a Person of kind CLUSTER called "Unknown NNN",
+            # and that label reaches the client in the same field a real name
+            # arrives in. get_or_create_person() looks a row up by
+            # (name, cluster_owner, kind), so asking for KIND_USER would not find
+            # the cluster: it would mint a *second* person with that name, of the
+            # kind that gets a person album and trains the classifier, and move
+            # the face onto it. The face dashboard has always hidden confirm for
+            # these kinds; the photo's own face list had not.
+            if Person.objects.filter(
+                name=person_name,
+                cluster_owner=self.request.user,
+                kind__in=(Person.KIND_CLUSTER, Person.KIND_UNKNOWN),
+            ).exists():
+                return Response(
+                    {
+                        "status": False,
+                        "message": (
+                            f'"{person_name}" is the label of a face cluster, not a '
+                            "person. Name the face instead of confirming the cluster."
+                        ),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             person = get_or_create_person(
-                name=data["person_name"], owner=self.request.user, kind=Person.KIND_USER
+                name=person_name, owner=self.request.user, kind=Person.KIND_USER
             )
 
         # Everything the loop below touches is pulled in up front: the ownership

@@ -497,6 +497,8 @@
       "location": "Location",
       "caption": "Caption",
       "people": "People",
+      "unnamedface": "Who is this?",
+      "nameface": "Name this face",
       "submit": "Submit",
       "generate": "Generate",
       "cancel": "Cancel",
